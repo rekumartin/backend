@@ -3,137 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zoznam Študentov</title>
+    <title>Študentský Denník | Full-Stack App</title>
     <style>
-        /* Moderný tmavý dizajn */
+        :root {
+            --primary: #00d4ff;
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+            --text-dim: #bbb;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
             margin: 0;
-            padding: 40px;
+            padding: 40px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
 
         h1 {
-            color: #00d4ff;
-            margin-bottom: 30px;
+            color: var(--primary);
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
         }
 
-        /* Mriežka pre karty */
+        p.subtitle {
+            color: var(--text-dim);
+            margin-bottom: 40px;
+        }
+
+        /* Mriežka kariet */
         .container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 25px;
+            gap: 30px;
             width: 100%;
             max-width: 1200px;
         }
 
-        /* Štýl karty študenta */
+        /* Štýl karty */
         .card {
-            background: #1e1e1e;
-            border-radius: 15px;
+            background: var(--card-bg);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            transition: transform 0.3s ease, border 0.3s ease;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             border: 1px solid #333;
+            position: relative;
         }
 
         .card:hover {
-            transform: translateY(-10px);
-            border-color: #00d4ff;
+            transform: translateY(-12px) scale(1.02);
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
         }
 
         .card img {
             width: 100%;
-            height: 250px;
+            height: 220px;
             object-fit: cover;
-            border-bottom: 2px solid #00d4ff;
+            filter: grayscale(20%);
+            transition: 0.3s;
+        }
+
+        .card:hover img {
+            filter: grayscale(0%);
         }
 
         .info {
-            padding: 20px;
-        }
-
-        .name {
-            font-size: 1.4rem;
-            margin: 0;
-            color: #fff;
+            padding: 25px;
         }
 
         .nickname {
-            color: #00d4ff;
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
             font-weight: bold;
-            font-style: italic;
-            margin-bottom: 10px;
-            display: block;
+            margin-bottom: 12px;
+            border: 1px solid var(--primary);
+        }
+
+        .name {
+            font-size: 1.5rem;
+            margin: 0 0 10px 0;
+            font-weight: 700;
         }
 
         .bio {
-            font-size: 0.9rem;
-            color: #bbb;
-            line-height: 1.4;
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin: 0;
         }
 
-        /* Loading indikátor */
-        #loader {
-            font-size: 1.2rem;
-            color: #00d4ff;
+        /* Stavové správy */
+        #status-msg {
+            font-size: 1.1rem;
+            margin-top: 50px;
+            color: var(--primary);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .error {
+            color: #ff4d4d !important;
+            animation: none !important;
+            text-align: center;
+            max-width: 400px;
         }
     </style>
 </head>
 <body>
 
     <h1>Študentský Denník</h1>
+    <p class="subtitle">Dáta načítané z tvojho API</p>
     
-    <div id="loader">Načítavam študentov z databázy...</div>
+    <div id="status-msg">Pripájanie k serveru...</div>
     <div class="container" id="student-container"></div>
 
     <script>
-        // Táto adresa musí sedieť s tvojím backendom
-        const API_URL = 'http://localhost:3000/students';
+        /**
+         * DÔLEŽITÉ: window.location.origin zabezpečí, že frontend 
+         * bude hľadať backend na rovnakej adrese, kde beží on sám.
+         */
+        const API_URL = window.location.origin + '/students';
 
         async function fetchStudents() {
+            const container = document.getElementById('student-container');
+            const statusMsg = document.getElementById('status-msg');
+
             try {
                 const response = await fetch(API_URL);
+                
+                if (!response.ok) throw new Error('Nepodarilo sa získať dáta');
+
                 const students = await response.json();
                 
-                const container = document.getElementById('student-container');
-                const loader = document.getElementById('loader');
-                
-                // Schováme loader
-                loader.style.display = 'none';
+                // Odstránime loading správu
+                statusMsg.style.display = 'none';
 
-                // Vymažeme obsah (ak by tam niečo bolo)
-                container.innerHTML = '';
+                // Ak nemáme žiadnych študentov
+                if (students.length === 0) {
+                    statusMsg.style.display = 'block';
+                    statusMsg.innerHTML = 'Databáza je prázdna.';
+                    return;
+                }
 
-                // Vygenerujeme karty
-                students.forEach(student => {
-                    const card = `
-                        <div class="card">
-                            <img src="${student.image}" alt="${student.name}" onerror="this.src='https://via.placeholder.com/300x250?text=Bez+fotky'">
-                            <div class="info">
-                                <span class="nickname">"${student.nickname}"</span>
-                                <h2 class="name">${student.name} ${student.surname}</h2>
-                                <p class="bio">${student.bio}</p>
-                            </div>
+                // Generovanie kariet
+                container.innerHTML = students.map(student => `
+                    <div class="card">
+                        <img src="${student.image}" alt="${student.name}" 
+                             onerror="this.src='https://via.placeholder.com/400x300?text=Chýba+fotka'">
+                        <div class="info">
+                            <span class="nickname">${student.nickname || 'Bez prezývky'}</span>
+                            <h2 class="name">${student.name} ${student.surname}</h2>
+                            <p class="bio">${student.bio || 'Tento študent nemá žiadne info.'}</p>
                         </div>
-                    `;
-                    container.innerHTML += card;
-                });
+                    </div>
+                `).join('');
 
             } catch (error) {
-                console.error('Chyba pri načítaní dát:', error);
-                document.getElementById('loader').innerHTML = '❌ Nepodarilo sa pripojiť k backendu. Beží ti node server.js?';
+                console.error('Chyba:', error);
+                statusMsg.classList.add('error');
+                statusMsg.innerHTML = `
+                    ❌ <b>Chyba pripojenia!</b><br>
+                    Uisti sa, že tvoj backend beží (node server.js) 
+                    alebo skontroluj URL na Renderi.
+                `;
             }
         }
 
-        // Spustíme načítanie pri otvorení stránky
-        fetchStudents();
+        // Spustiť po načítaní stránky
+        window.addEventListener('DOMContentLoaded', fetchStudents);
     </script>
 </body>
 </html>
