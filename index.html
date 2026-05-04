@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Študentský Denník | Sorting Edition</title>
+    <title>Študentský Denník | Filter & Sort</title>
     <style>
         :root {
             --primary: #00d4ff;
@@ -24,8 +24,31 @@
             align-items: center;
         }
 
-        h1 { color: var(--primary); text-transform: uppercase; letter-spacing: 3px; }
-        p.subtitle { color: var(--text-dim); margin-bottom: 40px; }
+        h1 { color: var(--primary); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 5px; }
+        
+        /* Štýl pre vyhľadávacie pole */
+        .search-container {
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        #search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
 
         .container {
             display: grid;
@@ -44,12 +67,11 @@
             transition: 0.3s;
         }
 
-        .card:hover { transform: translateY(-10px); border-color: var(--primary); }
         .card img { width: 100%; height: 220px; object-fit: cover; }
         .info { padding: 20px; }
         .nickname { color: var(--primary); font-weight: bold; font-size: 0.8rem; margin-bottom: 5px; display: block; }
         .name { font-size: 1.4rem; margin: 0 0 10px 0; }
-        .bio { font-size: 0.9rem; color: var(--text-dim); line-height: 1.5; }
+        .bio { font-size: 0.9rem; color: var(--text-dim); }
 
         #status-msg { font-size: 1.1rem; margin: 20px; color: var(--primary); }
     </style>
@@ -57,72 +79,82 @@
 <body>
 
     <h1>Študentský Denník</h1>
-    <p class="subtitle">Zoznam zoradený podľa abecedy (A-Z)</p>
     
-    <div id="status-msg">Načítavam a triedim študentov...</div>
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Hľadať študenta podľa mena...">
+    </div>
+    
+    <div id="status-msg">Načítavam dáta...</div>
     <div class="container" id="student-container"></div>
 
     <script>
         const API_URL = window.location.origin + '/students';
+        let allStudents = []; // Sem si uložíme všetkých študentov po načítaní
 
-        // --- MANUÁLNY SORTING ALGORITMUS (Bubble Sort) ---
+        // 1. MANUÁLNY SORTING (Bubble Sort)
         function zoradStudentov(pole) {
             let n = pole.length;
-            
-            // Prechádzame celým polom
             for (let i = 0; i < n; i++) {
-                // Porovnávame susedné dvojice
                 for (let j = 0; j < n - 1 - i; j++) {
-                    
-                    // Získame mená a dáme ich na malé písmená pre správne porovnanie
-                    let menoA = pole[j].name.toLowerCase();
-                    let menoB = pole[j+1].name.toLowerCase();
-
-                    // Ak je meno vľavo "väčšie" ako meno vpravo (v abecede ďalej)
-                    if (menoA > menoB) {
-                        // VYMENÍME ICH (SWAP)
-                        let docasnaPremenna = pole[j];
+                    if (pole[j].name.toLowerCase() > pole[j+1].name.toLowerCase()) {
+                        let temp = pole[j];
                         pole[j] = pole[j + 1];
-                        pole[j + 1] = docasnaPremenna;
+                        pole[j + 1] = temp;
                     }
                 }
             }
             return pole;
         }
 
-        async function fetchStudents() {
+        // 2. FUNKCIA NA VYKRESLENIE KARIET
+        function zobrazStudentov(zoznam) {
             const container = document.getElementById('student-container');
-            const statusMsg = document.getElementById('status-msg');
+            if (zoznam.length === 0) {
+                container.innerHTML = "<p style='grid-column: 1/-1; text-align: center;'>Nenašli sa žiadni študenti.</p>";
+                return;
+            }
+            container.innerHTML = zoznam.map(student => `
+                <div class="card">
+                    <img src="${student.image}" alt="${student.name}" onerror="this.src='https://via.placeholder.com/400x300'">
+                    <div class="info">
+                        <span class="nickname">${student.nickname}</span>
+                        <h2 class="name">${student.name} ${student.surname}</h2>
+                        <p class="bio">${student.bio}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
 
+        // 3. LOGIKA FILTROVANIA
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const hladanyText = e.target.value.toLowerCase();
+            
+            // Vyfiltrujeme študentov, ktorých meno alebo priezvisko obsahuje napísaný text
+            const vyfiltrovani = allStudents.filter(s => 
+                s.name.toLowerCase().includes(hladanyText) || 
+                s.surname.toLowerCase().includes(hladanyText)
+            );
+            
+            zobrazStudentov(vyfiltrovani);
+        });
+
+        // 4. NAČÍTANIE DÁT
+        async function fetchStudents() {
             try {
                 const response = await fetch(API_URL);
-                let students = await response.json();
+                const data = await response.json();
                 
-                // 1. ZORADÍME DÁTA (RUČNE)
-                students = zoradStudentov(students);
-
-                // 2. SCHOVÁME STATUS
-                statusMsg.style.display = 'none';
-
-                // 3. VYKRESLÍME KARTY
-                container.innerHTML = students.map(student => `
-                    <div class="card">
-                        <img src="${student.image}" alt="${student.name}" onerror="this.src='https://via.placeholder.com/400x300'">
-                        <div class="info">
-                            <span class="nickname">${student.nickname}</span>
-                            <h2 class="name">${student.name} ${student.surname}</h2>
-                            <p class="bio">${student.bio}</p>
-                        </div>
-                    </div>
-                `).join('');
-
+                // Zoradíme ich hneď na začiatku
+                allStudents = zoradStudentov(data);
+                
+                document.getElementById('status-msg').style.display = 'none';
+                zobrazStudentov(allStudents);
             } catch (error) {
-                console.error('Chyba:', error);
-                statusMsg.innerHTML = "❌ Nepodarilo sa načítať dáta.";
+                document.getElementById('status-msg').innerHTML = "❌ Chyba pripojenia.";
             }
         }
 
-        window.addEventListener('DOMContentLoaded', fetchStudents);
+        fetchStudents();
     </script>
 </body>
 </html>
